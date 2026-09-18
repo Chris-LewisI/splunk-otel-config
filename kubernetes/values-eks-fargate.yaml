@@ -1,0 +1,51 @@
+# Splunk OTel Collector - EKS Fargate
+#
+# Fargate has no persistent nodes, so DaemonSets are not supported. The chart
+# runs agent functionality as sidecars and the gateway becomes the centralized
+# ingestion point - it is required here, not optional.
+#
+# clusterName must be set explicitly: Fargate pods have no EC2 metadata endpoint
+# for the resource detection processor to derive it from.
+#
+#   helm upgrade --install splunk-otel-collector \
+#     splunk-otel-collector-chart/splunk-otel-collector \
+#     -n splunk-otel -f values-eks-fargate.yaml
+
+clusterName: CHANGEME
+
+distribution: eks/fargate
+cloudProvider: aws
+
+environment: CHANGEME
+
+splunkObservability:
+  realm: CHANGEME
+  accessToken: CHANGEME
+  metricsEnabled: true
+  tracesEnabled: true
+
+# secret:
+#   create: false
+#   name: splunk-otel-collector-tokens
+
+# Required on Fargate. Point instrumented applications at the gateway service:
+#   splunk-otel-collector.splunk-otel.svc.cluster.local:4317
+gateway:
+  enabled: true
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 4
+      memory: 8Gi
+
+# On eks/fargate the chart deploys this as a 2-replica StatefulSet: one replica
+# runs the k8s_cluster receiver, the other discovers kubelets via the Kubernetes
+# observer, since a Fargate pod cannot reach its own kubelet across the VM boundary.
+clusterReceiver:
+  enabled: true
+  eventsEnabled: true
+
+# eventsEnabled above requires either splunkPlatform.logsEnabled or this gate.
+# Without one of them it is silently a no-op on an Observability-only install.
+featureGates:
+  sendK8sEventsToSplunkO11y: true

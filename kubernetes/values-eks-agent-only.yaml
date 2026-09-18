@@ -1,0 +1,49 @@
+# Splunk OTel Collector - EKS (EC2-backed nodes), agent-only topology
+#
+# Agents run as a DaemonSet and export directly to Splunk Observability Cloud.
+# No gateway tier. Recommended for clusters below ~25 nodes.
+#
+#   helm upgrade --install splunk-otel-collector \
+#     splunk-otel-collector-chart/splunk-otel-collector \
+#     -n splunk-otel -f values-eks-agent-only.yaml
+
+clusterName: CHANGEME
+
+distribution: eks
+cloudProvider: aws
+
+# Sets deployment.environment.name on all telemetry.
+environment: CHANGEME
+
+splunkObservability:
+  realm: CHANGEME
+  # Prefer a pre-created secret over an inline token. See manifests/secret.example.yaml,
+  # then set secret.create=false and secret.name below.
+  accessToken: CHANGEME
+  metricsEnabled: true
+  tracesEnabled: true
+
+# secret:
+#   create: false
+#   name: splunk-otel-collector-tokens
+
+# DaemonSet: one pod per node, scheduled automatically as nodes join or leave.
+agent:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 500Mi
+
+# Singleton Deployment: cluster-wide metrics and Kubernetes events.
+clusterReceiver:
+  enabled: true
+  eventsEnabled: true
+
+# eventsEnabled above requires either splunkPlatform.logsEnabled or this gate.
+# Without one of them it is silently a no-op on an Observability-only install.
+featureGates:
+  sendK8sEventsToSplunkO11y: true
+
+gateway:
+  enabled: false

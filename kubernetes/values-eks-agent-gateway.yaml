@@ -1,0 +1,59 @@
+# Splunk OTel Collector - EKS (EC2-backed nodes), agent + gateway topology
+#
+# Agents (DaemonSet, one per node) forward to a small gateway pool (Deployment),
+# which is the only egress point to Splunk Observability Cloud.
+#
+# Use this over the agent-only values when you need any of:
+#   - a single set of egress IPs to allowlist
+#   - the access token held only by the gateway tier
+#   - tail-based sampling or other processing that needs spans to converge
+#   - larger buffers / retry queues than a per-node agent can hold
+#
+#   helm upgrade --install splunk-otel-collector \
+#     splunk-otel-collector-chart/splunk-otel-collector \
+#     -n splunk-otel -f values-eks-agent-gateway.yaml
+
+clusterName: CHANGEME
+
+distribution: eks
+cloudProvider: aws
+
+environment: CHANGEME
+
+splunkObservability:
+  realm: CHANGEME
+  accessToken: CHANGEME
+  metricsEnabled: true
+  tracesEnabled: true
+
+# secret:
+#   create: false
+#   name: splunk-otel-collector-tokens
+
+# DaemonSet: one pod per node. With the gateway enabled the chart repoints the
+# agent's exporters at the gateway service instead of Splunk ingest.
+agent:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 500Mi
+
+# Deployment, NOT a DaemonSet. A per-node gateway would defeat the point of the
+# tier - keep this a small pool sized to cluster throughput, not to node count.
+gateway:
+  enabled: true
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 4
+      memory: 8Gi
+
+clusterReceiver:
+  enabled: true
+  eventsEnabled: true
+
+# eventsEnabled above requires either splunkPlatform.logsEnabled or this gate.
+# Without one of them it is silently a no-op on an Observability-only install.
+featureGates:
+  sendK8sEventsToSplunkO11y: true
